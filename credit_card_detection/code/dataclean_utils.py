@@ -52,10 +52,11 @@ def data_normalized_continuous_features(data, col_names=None):
 	temp_data = data.copy()
 	if data is None:
 		raise IOError('data normalized: input dataset is None.')
+	if col_names is None or len(col_names) == 0:
+		return [], []
 	# collect arguments
 	args_df = temp_data[col_names].describe().ix[['mean', 'std'], :].T
 	normal_data = temp_data[col_names].apply(lambda x: z_score(x))
-
 	return normal_data, args_df
 
 
@@ -71,6 +72,8 @@ def data_onehot_discrete_features(data, dis_names=None):
 	temp_data = data.copy()
 	if data is None:
 		raise IOError('data onehot: input dataset is None.')
+	if dis_names is None or len(dis_names) == 0:
+		return []
 	temp_data_dis = temp_data[dis_names].astype('str')
 	for dis_name in dis_names:
 		uni_values = temp_data_dis[dis_name].unique().tolist()
@@ -92,11 +95,20 @@ def dive_imbalance_data(trainX, trainy):
 	return oversampling_trainX, oversampling_trainy
 
 
-def imbalance(trainX, trainy, unique_class_val=2, positive_negative_perc=0.5):
+def imbalance(trainX, trainy, class_num=2, positive_negative_perc=0.5):
+	"""
+	暂仅实现对二元分类的样本平衡
+	----------------------------
+	:param trainX: pd.DataFrame
+	:param trainy: pd.DataFrame
+	:param class_num: int
+	:param positive_negative_perc: float, in [0, 1]
+	:return: tuple, (x, y)
+	"""
 	temp_trainX = trainX.copy()
 	temp_trainy = trainy.copy().astype('int')
 
-	if unique_class_val < 3:
+	if class_num < 3:
 		if positive_negative_perc < 0.4 or (1 - positive_negative_perc) < 0.4:
 			return dive_imbalance_data(trainX=temp_trainX, trainy=temp_trainy)
 		else:
