@@ -37,7 +37,7 @@ y_train = df.ix[X_train_index, [0]]
 X_test = df.ix[X_test_index, 1:df.shape[1]]
 y_test = df.ix[X_test_index, [0]]
 
-print X_train.head(), y_train.head()
+print(X_train.head(), y_train.head())
 
 # train data
 '''
@@ -64,12 +64,12 @@ model = xgb.train(params=params, dtrain=dtrain, num_boost_round=200,
 
 y_pred = model.predict(dtest)
 y_pred_margin = model.predict(dtest, output_margin=True)
-print classification_report(y_true=dtest.get_label(), y_pred=y_pred)
-print '-.'*30
-print confusion_matrix(y_true=dtest.get_label(), y_pred=y_pred)
+print(classification_report(y_true=dtest.get_label(), y_pred=y_pred))
+print('-.'*30)
+print(confusion_matrix(y_true=dtest.get_label(), y_pred=y_pred))
 
 model.get_dump()
-print model.get_dump()
+print(model.get_dump())
 
 ### save model
 # after training, the model can be saved
@@ -90,20 +90,20 @@ load_model_pkl = pickle.load(open('../model/test.pkl', 'rb'))
 ### predict
 dpredict = xgb.DMatrix(data=test_df[:1000])
 pred = model.predict(dpredict)
-print test_df[:1000].index.values
+print(test_df[:1000].index.values)
 imageId = pd.DataFrame(data=test_df[:1000].index.values, columns=['ImageId'])
 label = pd.DataFrame(data=pred, columns=['Label'], dtype=int)
 
 result = pd.concat([imageId, label], axis=1)
-print result.head()
+print(result.head())
 
 xgb.plot_tree(model, num_trees=0)
 
-print '--test--'*5
+print('--test--'*5)
 pred_1 = load_model.predict(dpredict)
 pred_2 = load_model_pkl.predict(dpredict)
-print confusion_matrix(pred, pred_1)
-print confusion_matrix(pred, pred_2)
+print(confusion_matrix(pred, pred_1))
+print(confusion_matrix(pred, pred_2))
 
 '''
 ImageId,Label

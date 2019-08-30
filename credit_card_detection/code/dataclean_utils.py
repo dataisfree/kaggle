@@ -5,6 +5,7 @@
 from collections import Counter
 from imblearn.over_sampling import SMOTE
 
+
 def create_missing_value_dict(data, dis_names, con_names):
 	"""
 	缺失值填充字典
@@ -86,13 +87,23 @@ def data_onehot_discrete_features(data, dis_names=None):
 
 # data balanced
 def dive_imbalance_data(trainX, trainy):
+	"""
+	不平衡集SMOTE处理
+	-----------------
+
+	:param trainX: pd.DataFrame
+	:param trainy: pd.DataFrame
+	:return: tuple(np.ndarray, np.ndarray, list, list)
+	"""
 	temp_trainX = trainX.copy()
 	temp_trainy = trainy.copy()
+	trainX_names = temp_trainX.columns.values.tolist()
+	trainy_names = temp_trainy.columns.values.tolist()
 
 	# sm = SMOTE(sampling_strategy='minority', random_state=7)
 	sm = SMOTE(ratio='minority', random_state=7)
 	oversampling_trainX, oversampling_trainy = sm.fit_resample(X=temp_trainX, y=temp_trainy)
-	return oversampling_trainX, oversampling_trainy
+	return oversampling_trainX, oversampling_trainy, trainX_names, trainy_names
 
 
 def imbalance(trainX, trainy, class_num=2, positive_negative_perc=0.5):
@@ -103,17 +114,20 @@ def imbalance(trainX, trainy, class_num=2, positive_negative_perc=0.5):
 	:param trainy: pd.DataFrame
 	:param class_num: int
 	:param positive_negative_perc: float, in [0, 1]
-	:return: tuple, (x, y)
+	:return: tuple(np.ndarray, np.ndarray, list, list)
 	"""
 	temp_trainX = trainX.copy()
-	temp_trainy = trainy.copy().astype('int')
+	temp_trainy = trainy.copy().astype('int64')
+
+	trainX_names = temp_trainX.columns.values.tolist()
+	trainy_names = temp_trainy.columns.values.tolist()
 
 	if class_num < 3:
 		if positive_negative_perc < 0.4 or (1 - positive_negative_perc) < 0.4:
 			return dive_imbalance_data(trainX=temp_trainX, trainy=temp_trainy)
 		else:
 			print(u'当前数据集暂不支持进行“样本均衡处理”！')
-			return temp_trainX, temp_trainy
+			return temp_trainX.values, temp_trainy.values, trainX_names, trainy_names
 	else:
 		print(u'当前数据集暂不支持进行“样本均衡处理”！')
-		return temp_trainX, temp_trainy
+		return temp_trainX.values, temp_trainy.values, trainX_names, trainy_names
