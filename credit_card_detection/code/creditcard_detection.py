@@ -48,7 +48,6 @@ X_names = all_names.copy()
 X_names.remove(feature_name)
 
 
-
 # data split
 X = train[X_names]
 y = train[[feature_name]]		# pd.DataFrame
