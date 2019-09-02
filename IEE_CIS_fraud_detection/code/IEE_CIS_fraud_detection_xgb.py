@@ -169,7 +169,7 @@ X_names.remove(class_name)
 train_data = df[train_feature_names].copy()
 # train_data = train_data[:100000].copy()
 
-train_data - train_data.sample(frac=1)
+train_data = train_data.sample(frac=1)
 train_data = train_data[:30000].copy()
 train_data_y = train_data[train_data['isFraud'] == 1]
 train_data = pd.concat([train_data, train_data_y])
