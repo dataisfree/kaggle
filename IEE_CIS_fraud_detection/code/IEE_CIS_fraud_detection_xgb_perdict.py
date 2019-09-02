@@ -60,11 +60,9 @@ args_feature_names = []
 with open('../model/args_cleaned_feature_names.txt', 'r+') as inf:
 	for name in inf.readlines():
 		args_feature_names.append(name.strip())
-
 args_normal_cfeatures = pd.read_csv('../model/args_normalized_continuous_features.csv')
-
 args_missing_value = pd.read_json('../model/args_missing_value_fill.json')
-
+args_missing_value_dict = eval(args_missing_value.to_json())['args']
 
 # load data
 df_identity = pd.read_csv('../predict/test_identity.csv')
@@ -74,38 +72,60 @@ print(df_identity.shape)
 print(df_transaction.shape)
 
 df = df_transaction.join(
-	df_identity.reset_index('TransactionID'),
+	df_identity.set_index('TransactionID'),
 	on='TransactionID',
 	how='left',
 	lsuffix='_transaction',
 	rsuffix='_identity'
 )
 
-
+df = df.sample(frac=1)
+df = df[:10000]
 print(1)
 # data clean
-# np.zeros(df.shape) or np.array(([0] * df.shape[1]) * df.shape[0])
-data_template = np.zeros_like(df)
-data_template = pd.DataFrame(data_template, columns=args_feature_names)
+# np.zeros(df.shape) or np.array(([0] * df.shape[1]) * df.shape[0]) or np.zeros_like(cleaned_train_data)
+data_template = np.zeros((df.shape[0], len(args_feature_names)))
+data_template = pd.DataFrame(data_template, columns=args_feature_names, dtype=int)
 
 
-def z_score(x, mean, std):
-	if std == 0:
+# 变量衍生
+def have_value(x):
+	"""
+	衍生变量是否有值
+	----------------
+	:param x:
+	:return:
+	"""
+	if isinstance(x, np.float) and pd.isnull(x):
 		return 0
 	else:
-		return (x-mean)-std
+		return 1
+
+
+def z_score(x, a_mean, a_std):
+	if a_std == 0:
+		return 0
+	else:
+		return (x-a_mean)/a_std
 
 
 def math_ceil(x):
 	return int(math.ceil(x))
 
-df = df.fillna({})
+
+df['have_p_emaildomain'] = df['P_emaildomain'].apply(lambda x: have_value(x))
+print(df['R_emaildomain'].unique())
+df['have_r_emaildomain'] = df['R_emaildomain'].apply(lambda x: have_value(x))
+print(df[['have_p_emaildomain', 'P_emaildomain']])
+print(df[['have_r_emaildomain', 'R_emaildomain']])
+
+df = df.fillna(args_missing_value_dict)
 for con_name in train_continuous_feature_names:
 	mean = args_normal_cfeatures.ix[args_normal_cfeatures['Unnamed: 0'] == con_name, 'mean'].values.min()
 	std = args_normal_cfeatures.ix[args_normal_cfeatures['Unnamed: 0'] == con_name, 'std'].values.min()
-	data_template[con_name] = df[con_name].apply(lambda x: z_score(x, mean=mean, std=std))
+	data_template[con_name] = df[con_name].apply(lambda x: z_score(x, a_mean=mean, a_std=std)).values
 	if con_name.startswith('C'):		# 特殊值取整
-		data_template[con_name] = data_template[con_name].apply(lambda x: math_ceil(x))
+		data_template[con_name] = data_template[con_name].apply(lambda x: math_ceil(x)).values
 
 for cat_name in train_categorical_feature_names:
 	df[cat_name] = df[cat_name].astype(str)
