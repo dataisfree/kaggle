@@ -9,17 +9,19 @@ import time
 import math
 from collections import Counter
 import matplotlib as mpl
+import json
 import matplotlib.pyplot as plt
 import dataclean_utils as dc
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
+from sklearn.metrics import classification_report
 
 mpl.rcParams['font.family'] = 'SimHei'
 mpl.rcParams["axes.unicode_minus"] = False
 
 # load_data
-df_identity = pd.read_csv('../data/train_identity.csv/train_identity.csv')
-df_transaction = pd.read_csv('../data/train_transaction.csv/train_transaction.csv')
+df_identity = pd.read_csv('../data/train_identity.csv')
+df_transaction = pd.read_csv('../data/train_transaction.csv')
 
 df = df_identity.join(
 	df_transaction.set_index('TransactionID'),
@@ -38,7 +40,9 @@ class_name = 'isFraud'
 print('# df dtypes:', df.dtypes)
 print(df.head(2))
 
-# df = pd.read_csv('../data/train_transaction.csv/join_identity_transaction.csv')
+# df = pd.read_csv('../data/join_identity_transaction.csv')
+
+# df = df[:2000].copy()
 
 
 # 变量衍生
@@ -49,7 +53,7 @@ def have_value(x):
 	:param x:
 	:return:
 	"""
-	if isinstance(x, np.float) and pd.isna(x):
+	if isinstance(x, np.float) and pd.isnull(x):
 		return 0
 	else:
 		return 1
@@ -164,6 +168,13 @@ X_names.remove(class_name)
 
 train_data = df[train_feature_names].copy()
 # train_data = train_data[:100000].copy()
+
+train_data - train_data.sample(frac=1)
+train_data = train_data[:30000].copy()
+train_data_y = train_data[train_data['isFraud'] == 1]
+train_data = pd.concat([train_data, train_data_y])
+train_data.reset_index(inplace=True)
+
 trainX = train_data[X_names].copy()
 trainy = train_data[[class_name]].copy()
 
@@ -188,13 +199,18 @@ for CntName in train_continuous_feature_names:
 		CntNames.append(CntName)
 for CntName in CntNames:
 	missing_fill_dict[CntName] = int(math.ceil(missing_fill_dict[CntName]))
+
+for con_name in train_continuous_feature_names:
+	if str(missing_fill_dict.get(con_name)) == 'nan':
+		missing_fill_dict[con_name] = 0
+
 for key_value in missing_fill_dict.items():
 	print(key_value)
 
 # 缺失值填充
 trainX.fillna(missing_fill_dict, inplace=True)
 
-trainX_onehot = dc.data_onehot_discrete_features(data=trainX, dis_names=train_continuous_feature_names)
+trainX_onehot = dc.data_onehot_discrete_features(data=trainX, dis_names=train_categorical_feature_names)
 
 trainX_normal, trainX_args_df = dc.data_normalized_continuous_features(
 	data=trainX,
@@ -207,6 +223,9 @@ y_cnt = Counter(trainy.ix[:, 0].values)
 class_num = len(y_cnt.keys())
 class_0_rate = round(int(y_cnt.get(0)) / sum(y_cnt.values()), 4)
 class_1_rate = round(int(y_cnt.get(1)) / sum(y_cnt.values()), 4)
+for col in trainX_transpose.columns.values:
+	print('# colname: ', col, '# value: ', trainX_transpose[col][trainX_transpose[col].isnull()])
+
 over_sampling_trainX, over_sampling_trainy, trainX_names, trainy_names = dc.imbalance(
 	trainX=trainX_transpose,
 	trainy=trainy,
@@ -215,6 +234,10 @@ over_sampling_trainX, over_sampling_trainy, trainX_names, trainy_names = dc.imba
 )
 over_sampling_trainX = pd.DataFrame(data=over_sampling_trainX, columns=trainX_names)
 over_sampling_trainy = pd.DataFrame(data=over_sampling_trainy, columns=trainy_names)
+
+# 导出清洗后的数据集
+clean_dataset = pd.concat([over_sampling_trainX, over_sampling_trainy], axis=1)
+clean_dataset.to_csv('../data/cleaned_dataset.csv', index=False)
 
 X_train, X_test, y_train, y_test = train_test_split(
 	over_sampling_trainX, over_sampling_trainy,
@@ -233,6 +256,30 @@ val_results = {}
 watch_list = [(dtrain, 'train'), (dtest, 'val')]
 model = xgb.train(params=params, dtrain=dtrain, num_boost_round=100, evals=watch_list, evals_result=val_results)
 
+model.save_model('../model/IEE_CIS_fraud_detection_v1.model')
+
 # predict
-y_pred = model.predict()
+predictX = xgb.DMatrix(X_test)
+y_pred = model.predict(predictX)
+
+y_concate = pd.DataFrame(np.concatenate((y_test.values, y_pred.reshape(-1, 1)), axis=1), columns=['y_true', 'y_pred'])
+y_concate.to_csv('../data/predict_result.csv')
+
+y_class = [1 if val >= 0.5 else 0 for val in y_pred]
+print(classification_report(y_test, y_class))
 print(1)
+
+# 参数留存
+# 标准化参数
+trainX_args_df.to_csv('../model/args_normalized_continuous_features.csv')
+# 缺失值参数
+with open('../model/args_missing_value_fill.json', 'w+') as outf:
+	outf.write(json.dumps({'args': missing_fill_dict}))
+
+# 特征名
+with open('../model/args_cleaned_feature_names.txt', 'w+') as outf:
+	for name in over_sampling_trainX.columns.values.tolist():
+		outf.write(name + '\n')
+
+print(1)
+

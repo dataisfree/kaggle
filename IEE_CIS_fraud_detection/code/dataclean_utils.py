@@ -22,13 +22,20 @@ def create_missing_value_dict(data, dis_names, con_names):
 	# 离散变量
 	for dis_name in dis_names:
 		y_cnt = Counter(temp_data[dis_name].values)
-		if str(y_cnt.most_common(1)[0][0]) == 'nan':
-			result_dict[dis_name] = y_cnt.most_common(2)[1][0]
+		if len(y_cnt) <= 1:
+			if str(y_cnt.most_common(1)[0][0]) == 'nan':
+				result_dict[dis_name] = 0
+			else:
+				result_dict[dis_name] = y_cnt.most_common(1)[0][0]
 		else:
-			result_dict[dis_name] = y_cnt.most_common(1)[0][0]
+			if str(y_cnt.most_common(1)[0][0]) == 'nan':
+				result_dict[dis_name] = y_cnt.most_common(2)[1][0]
+			else:
+				result_dict[dis_name] = y_cnt.most_common(1)[0][0]
+
 	# result_dict[dis_name] = temp_data[dis_name].value_counts().index.values[0]
 	for con_name in con_names:
-		result_dict[con_name] = temp_data[con_name].values.mean().round(4)
+		result_dict[con_name] = round(temp_data[con_name].mean(), 4)
 	# result_dict[con_name] = round(temp_data[con_name].mean(), 4)
 
 	return result_dict
@@ -42,7 +49,10 @@ def z_score(x):
 	:param x:
 	:return:
 	"""
-	return (x - x.mean()) / x.std()
+	if x.std() == 0:
+		return 0
+	else:
+		return (x - x.mean()) / x.std()
 
 
 # data normalized
