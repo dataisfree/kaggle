@@ -148,5 +148,9 @@ array to pd.df to result_df
 array concate to result_df
 '''
 
-result = pd.concat([df['TransactionID'], pd.Series(y_pred, name='isFraud')], axis=1)
+result = pd.concat(
+	[df['TransactionID'].reset_index(), pd.Series(y_pred, name='isFraud').reset_index(drop=True)], axis=1)
+# result = pd.concat([df['TransactionID'].reset_index(), pd.Series(y_pred, name='isFraud')], axis=1)
+
 result.to_csv('../predict/predict_result.csv', index=False)
+print(1)
