@@ -170,7 +170,7 @@ train_data = df[train_feature_names].copy()
 # train_data = train_data[:100000].copy()
 
 train_data = train_data.sample(frac=1)
-train_data = train_data[:10000].copy()
+train_data = train_data[:40000].copy()
 train_data_y = train_data[train_data['isFraud'] == 1]
 train_data = pd.concat([train_data, train_data_y])
 train_data.reset_index(inplace=True)
@@ -267,6 +267,7 @@ y_concate.to_csv('../data/predict_result.csv')
 
 y_class = [1 if val >= 0.5 else 0 for val in y_pred]
 print(classification_report(y_test, y_class))
+print(Counter(y_class))
 print(1)
 
 # 参数留存

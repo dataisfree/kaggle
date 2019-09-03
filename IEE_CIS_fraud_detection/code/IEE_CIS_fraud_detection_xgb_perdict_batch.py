@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-
+批量预测
 """
 
 import os
@@ -80,14 +80,6 @@ df = df_transaction.join(
 	rsuffix='_identity'
 )
 
-# df = df.sample(frac=1)
-# df = df[:10000]
-print(1)
-# data clean
-# np.zeros(df.shape) or np.array(([0] * df.shape[1]) * df.shape[0]) or np.zeros_like(cleaned_train_data)
-data_template = np.zeros((df.shape[0], len(args_feature_names)))
-data_template = pd.DataFrame(data_template, columns=args_feature_names, dtype=int)
-
 
 # 变量衍生
 def have_value(x):
@@ -113,61 +105,63 @@ def z_score(x, a_mean, a_std):
 def math_ceil(x):
 	return int(math.ceil(x))
 
-'''
-df.apply(lambda x: def(x)):
----------------------------
-1. new_df['new'] = df['old'].apply(lambda): 可能会出现因为new_df和df的index不对应，导致new_df['new']的值匹配不完全
-2. df['new'] = df['old'].apply(lambda): 由于对同一个df操作，df['new']与lambda后的df['old']值完全对应，
-3. new_df/df['new'] = df['old'].apply(lambda).values：推荐处理，规避index不匹配导致的数据匹配不一致
-4. 当对多列同时进行lambda处理时，建议直接返回一个对象，然后再做拼接。new_obj=df[['col1', 'col2']].apply(lambda x: def(x))
----------------------------
-lambda返回新值，不在原地处理
-'''
-df['have_p_emaildomain'] = df['P_emaildomain'].apply(lambda x: have_value(x))
-print(df['R_emaildomain'].unique())
-df['have_r_emaildomain'] = df['R_emaildomain'].apply(lambda x: have_value(x))
-print(df[['have_p_emaildomain', 'P_emaildomain']])
-print(df[['have_r_emaildomain', 'R_emaildomain']])
-
-df = df.fillna(args_missing_value_dict)
-for con_name in train_continuous_feature_names:
-	mean = args_normal_cfeatures.ix[args_normal_cfeatures['Unnamed: 0'] == con_name, 'mean'].values.min()
-	std = args_normal_cfeatures.ix[args_normal_cfeatures['Unnamed: 0'] == con_name, 'std'].values.min()
-	data_template[con_name] = df[con_name].apply(lambda x: z_score(x, a_mean=mean, a_std=std)).values
-	if con_name.startswith('C'):		# 特殊值取整
-		data_template[con_name] = data_template[con_name].apply(lambda x: math_ceil(x)).values
-
-for cat_name in train_categorical_feature_names:
-	df[cat_name] = df[cat_name].astype(str)
-	uni_values = df[cat_name].unique().tolist()
-	for uni_value in uni_values:
-		data_template[str(cat_name) + '_' + str(uni_value)] = \
-			[1 if val == uni_value else 0 for val in df[cat_name]]
-
-'''
-预测集中部分离散特征值比训练集中多，本应做assert
-'''
-data_template = data_template[args_feature_names].copy()
-
-
-dtest = xgb.DMatrix(data_template)
-model = xgb.Booster()
-model.load_model('../model/IEE_CIS_fraud_detection_v1.model')
-y_pred = model.predict(dtest)
-
-# 结果集
-'''
-拼接方式
-series
-array to pd.df to result_df
-array concate to result_df
-'''
-
 result = pd.concat(
-	[df['TransactionID'].reset_index(), pd.Series(y_pred, name='isFraud').reset_index(drop=True)], axis=1)
-# result = pd.concat([df['TransactionID'].reset_index(), pd.Series(y_pred, name='isFraud')], axis=1)
+	[pd.Series([], name='TransactionID').reset_index(), pd.Series([], name='isFraud').reset_index(drop=True)],
+	axis=1)
+# pd.concat([pd.Series([], name='TransactionID').reset_index(), pd.Series([], name='isFraud').reset_index(drop=True)], axis=1)
+for i in range(df.shape[0]):
+	if i % 100 == 0:
+		print('# current predict lines is: {low} - {high}'.format(low=i+1, high=i+100))
+		temp_df = df.ix[i:i+99, :].copy()
+		data_template = np.zeros((temp_df.shape[0], len(args_feature_names)))
+		data_template = pd.DataFrame(data_template, columns=args_feature_names, dtype=int)
+		print(temp_df['P_emaildomain'].unique())
+		temp_df['have_p_emaildomain'] = temp_df['P_emaildomain'].apply(lambda x: have_value(x))
+		print(temp_df['R_emaildomain'].unique())
+		temp_df['have_r_emaildomain'] = temp_df['R_emaildomain'].apply(lambda x: have_value(x))
+
+		# print(temp_df[['have_p_emaildomain', 'P_emaildomain']])
+		# print(temp_df[['have_r_emaildomain', 'R_emaildomain']])
+
+		temp_df = temp_df.fillna(args_missing_value_dict)
+		for con_name in train_continuous_feature_names:
+			mean = args_normal_cfeatures.ix[args_normal_cfeatures['Unnamed: 0'] == con_name, 'mean'].values.min()
+			std = args_normal_cfeatures.ix[args_normal_cfeatures['Unnamed: 0'] == con_name, 'std'].values.min()
+			data_template[con_name] = temp_df[con_name].apply(lambda x: z_score(x, a_mean=mean, a_std=std)).values
+			if con_name.startswith('C'):		# 特殊值取整
+				data_template[con_name] = data_template[con_name].apply(lambda x: math_ceil(x)).values
+
+		for cat_name in train_categorical_feature_names:
+			temp_df[cat_name] = temp_df[cat_name].astype(str)
+			uni_values = temp_df[cat_name].unique().tolist()
+			for uni_value in uni_values:
+				data_template[str(cat_name) + '_' + str(uni_value)] = \
+					[1 if val == uni_value else 0 for val in temp_df[cat_name]]
+
+		'''
+		预测集中部分离散特征值比训练集中多，本应做assert
+		'''
+		data_template = data_template[args_feature_names].copy()
+		print(data_template.columns.values)
+		data_template.sort_index(axis=1, inplace=True)
+		print(data_template.columns.values)
+
+		dtest = xgb.DMatrix(data_template)
+		model = xgb.Booster()
+		model.load_model('../model/IEE_CIS_fraud_detection_v1.model')
+		y_pred = model.predict(dtest)
+
+		# 结果集
+		batch_result = pd.concat(
+			[
+				df['TransactionID'].reset_index(),		# reset_index(name=x)可用于指定由原索引生成列的列名
+				pd.Series(y_pred, name='isFraud').reset_index(drop=True)
+			],
+			axis=1)
+		result = pd.concat([result, batch_result], axis=0)
+
+		y_class = [1 if val >= 0.5 else 0 for val in y_pred]
+		print('# current batch 0-1 percent: ', Counter(y_class))
 
 result.to_csv('../predict/predict_result.csv', index=False)
 print(1)
-y_class = [1 if val >= 0.5 else 0 for val in y_pred]
-print(Counter(y_class))
