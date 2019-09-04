@@ -154,7 +154,7 @@ for i in range(df.shape[0]):
 		# 结果集
 		batch_result = pd.concat(
 			[
-				df['TransactionID'].reset_index(),		# reset_index(name=x)可用于指定由原索引生成列的列名
+				temp_df['TransactionID'].reset_index(),		# reset_index(name=x)可用于指定由原索引生成列的列名
 				pd.Series(y_pred, name='isFraud').reset_index(drop=True)
 			],
 			axis=1)
