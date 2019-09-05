@@ -145,3 +145,17 @@ def imbalance(trainX, trainy, class_num=2, positive_negative_perc=0.5):
 	else:
 		print(u'当前数据集暂不支持进行“样本均衡处理”！')
 		return temp_trainX.values, temp_trainy.values, trainX_names, trainy_names
+
+
+# 变量衍生
+def have_value(x):
+	"""
+	衍生变量是否有值
+	----------------
+	:param x:
+	:return:
+	"""
+	if isinstance(x, np.float) and pd.isnull(x):
+		return 0
+	else:
+		return 1
