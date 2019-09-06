@@ -4,7 +4,8 @@
 """
 from collections import Counter
 from imblearn.over_sampling import SMOTE
-
+import numpy as np
+import pandas as pd
 
 def create_missing_value_dict(data, dis_names, con_names):
 	"""
