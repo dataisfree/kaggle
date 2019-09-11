@@ -199,12 +199,17 @@ special_cols_by_split = [
 ]		# 待分箱的字段名
 split_dict = {}		# 分箱字典
 for special_col in special_cols_by_split:
-	trainX['new_'+str(special_col)], cur_split_dict = dc.split_box(
-		trainX[special_col], type='width', width_interval=1000
+	# trainX['new_'+str(special_col)], cur_split_dict = dc.split_box(
+	trainX[special_col], cur_split_dict = dc.split_box(
+		trainX[special_col],
+		type='width',
+		width_interval=1000,
+		fillna_dict=missing_fill_dict
 	)
-	print(trainX[[special_col, 'new_'+str(special_col)]].head(5))
+	print(trainX[special_col].head(5))
 	print('\n', cur_split_dict)
 	split_dict[special_col] = cur_split_dict
+# trainX.drop(special_cols_by_split, axis=1, inplace=True)
 
 trainX_onehot = dc.data_onehot_discrete_features(data=trainX, dis_names=train_categorical_feature_names)
 
@@ -233,4 +238,10 @@ over_sampling_trainy = pd.DataFrame(data=over_sampling_trainy, columns=trainy_na
 
 # 导出清洗后的数据集
 clean_dataset = pd.concat([over_sampling_trainX, over_sampling_trainy], axis=1)
-clean_dataset.to_csv('../data/cleaned_dataset.csv', index=False)
+clean_dataset.to_csv('../data/cleaned_dataset1.csv', index=False)
+
+# 导出离散范围
+with open('../model/args_split_box_range.json', 'w+') as inf:
+	inf.writelines(json.dumps(split_dict))
+
+print('run finish!!!')

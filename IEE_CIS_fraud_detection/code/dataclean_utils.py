@@ -162,22 +162,27 @@ def have_value(x):
 		return 1
 
 
-def split_box_flag_and_desc(x, dividing_point=None):
+def split_box_flag_and_desc(x, dividing_point=None, fillna_value=None):
 	a = 0
 	'''
 	range(len(div_point)-1) 
 	目的：因为在间隔区间首尾两端增加了正负无穷大，取range(len(div_point)-1)是为了在for和if时避免最后一个区间时下标越界，
 	'''
-	for index in range(len(dividing_point)-1):
-		if dividing_point[index] < x <= dividing_point[index + 1]:
-			a += 1
-			return index
-	if a == 0:
-		raise ValueError('x value is ERROR!')
+	if not isinstance(x, type(fillna_value)):
+		pass
+	if isinstance(x, float) or isinstance(x, int):
+		for index in range(len(dividing_point)-1):
+			if dividing_point[index] < x <= dividing_point[index + 1]:
+				a += 1
+				return index
+		if a == 0:
+			raise ValueError('x(float or int) is not find box!')
+	else:
+		return fillna_value
 
 
 # 变量分箱离散
-def split_box(data, type='width', width_interval=500):
+def split_box(data, type='width', width_interval=500, fillna_dict=None):
 	"""
 	变量分箱
 	-------
@@ -187,6 +192,9 @@ def split_box(data, type='width', width_interval=500):
 	:return:
 	"""
 	temp_data = data.copy()
+	if isinstance(fillna_dict[temp_data.name], str):
+		temp_data = temp_data.replace(fillna_dict[temp_data.name], np.nan)
+
 	if type == 'frequency':
 		pass
 	elif type == 'width':
@@ -194,13 +202,21 @@ def split_box(data, type='width', width_interval=500):
 		max_x = temp_data.max()
 		width_interval = 1*10**(len(str(int(abs(temp_data.mean()))))-1)
 		n = int((max_x - min_x) * 1.0 / width_interval)
-		div_point = [min_x + (i + 1) * width_interval for i in range(n)]
+		div_point = [int(min_x + (i + 1) * width_interval) for i in range(n)]
 		div_point.insert(0, float('-inf'))
 		div_point.extend([float('inf')])
 		interval_range = {
 			index: 'range:({} < x <= {})'.format(div_point[index], div_point[index+1])
 			for index in range(len(div_point)-1)
 		}
-		return temp_data.apply(lambda x: split_box_flag_and_desc(x, dividing_point=div_point)), interval_range
+		fillna_val = fillna_dict[temp_data.name]
+		interval_range['fillna_value'] = fillna_val
+
+		return data.apply(
+			lambda x: split_box_flag_and_desc(
+				x,
+				dividing_point=div_point,
+				fillna_value=fillna_val)
+		), interval_range
 	else:
 		pass

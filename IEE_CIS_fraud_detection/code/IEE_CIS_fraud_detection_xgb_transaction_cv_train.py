@@ -13,7 +13,7 @@ from sklearn.metrics import classification_report
 
 pd.set_option('max_columns', 100)
 
-df = pd.read_csv('../data/cleaned_dataset_transaction.csv')
+df = pd.read_csv('../data/cleaned_dataset.csv')
 
 all_names = df.columns.values.tolist()
 y_name = 'isFraud'
@@ -90,7 +90,7 @@ gridsearch_params = [
 	for min_child_weight in range(5, 7)
 ]
 # step run cv on each of params pairs
-min_auc = float('inf')
+min_auc = float('-inf')		# 对于正确率之流：取负无穷； 对于错误率之流：取正无穷
 best_params = None
 for max_depth, min_child_weight in gridsearch_params:
 	print('# current run cv with max_depth={a:d}, min_child_weigth={b:d}'.format(
@@ -116,7 +116,12 @@ for max_depth, min_child_weight in gridsearch_params:
 	print('\tauc {auc:.4f} for {round:d} rounds'.format(
 		auc=mean_auc, round=boost_rounds
 	))
-	if mean_auc < min_auc:
+	# 适用于：错误率等
+	# if mean_auc < min_auc:
+	# 	min_auc = mean_auc
+	# 	best_params = (max_depth, min_child_weight)
+	# 适用于：正确率等
+	if mean_auc >= min_auc:
 		min_auc = mean_auc
 		best_params = (max_depth, min_child_weight)
 	print(1)
@@ -147,7 +152,7 @@ gridsearch_params = [
 ]
 
 # step: run cv on each of params pairs
-min_auc = float('inf')
+min_auc = float('-inf')
 best_params_samples = None
 for subsample, colsample_bytree in reversed(gridsearch_params):
 	print('# current run cv with subsample={}, colsample_bytree={}'.format(
@@ -171,7 +176,7 @@ for subsample, colsample_bytree in reversed(gridsearch_params):
 	mean_auc = cv_results_sample['test-auc-mean'].max()
 	boost_rounds = cv_results_sample['test-auc-mean'].argmax()
 	print('\tbest AUC {:.6f} for {:d} rounds'.format(mean_auc, boost_rounds))
-	if mean_auc < min_auc:
+	if mean_auc >= min_auc:
 		min_auc = mean_auc
 		best_params_samples = (subsample, colsample_bytree)
 # step print the best values
@@ -194,7 +199,7 @@ params['colsample_bytree'] = best_params_samples[1]
 gridsearch_params = [.3, .2, .1, .05, .01, .005]
 
 # step run cv on each of parames pairs
-min_auc = float('inf')
+min_auc = float('-inf')
 best_params_eta = None
 for eta in gridsearch_params:
 	print('# current run cv with eta={:.6f}'.format(eta))
@@ -216,13 +221,13 @@ for eta in gridsearch_params:
 	mean_auc = cv_results_eta['test-auc-mean'].max()
 	boost_rounds = cv_results_eta['test-auc-mean'].argmax()
 	print('\tbest AUC {:.6f} for {:d} rounds'.format(mean_auc, boost_rounds))
-	if mean_auc < min_auc:
+	if mean_auc >= min_auc:
 		min_auc = mean_auc
-		best_params_eta = (eta)
+		best_params_eta = eta
 print('# current params: {}, AUC: {}'.format(
-	best_params_eta[0], min_auc
+	best_params_eta, min_auc
 ))
-params['eta'] = best_params_eta[0]
+params['eta'] = best_params_eta
 
 
 print('# after cv, the params: {}'.format(params))
