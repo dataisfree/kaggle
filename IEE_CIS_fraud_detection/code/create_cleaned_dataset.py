@@ -244,4 +244,17 @@ clean_dataset.to_csv('../data/cleaned_dataset1.csv', index=False)
 with open('../model/args_split_box_range.json', 'w+') as inf:
 	inf.writelines(json.dumps(split_dict))
 
+
+# 参数留存
+# 标准化参数
+trainX_args_df.to_csv('../model/args_normalized_continuous_features.csv')
+# 缺失值参数
+with open('../model/args_missing_value_fill.json', 'w+') as outf:
+	outf.write(json.dumps({'args': missing_fill_dict}))
+
+# 特征名
+with open('../model/args_cleaned_feature_names.txt', 'w+') as outf:
+	for name in over_sampling_trainX.columns.values.tolist():
+		outf.write(name + '\n')
+
 print('run finish!!!')
