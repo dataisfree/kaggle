@@ -54,7 +54,10 @@ train_continuous_feature_names = [
 	'V331',
 	'V332', 'V333', 'V334', 'V335', 'V336', 'V337', 'V338', 'V339'
 ]
-
+# 部分特征离散化
+special_cols_by_split = [
+	'card1', 'card2', 'card3', 'card5', 'addr1', 'addr2',
+]  # 待分箱的字段名
 # load args
 args_feature_names = []
 with open('../model/args_cleaned_feature_names.txt', 'r+') as inf:
@@ -98,19 +101,45 @@ def z_score(x, a_mean, a_std):
 	if a_std == 0:
 		return 0
 	else:
-		return (x-a_mean)/a_std
+		return (x - a_mean) / a_std
 
 
 def math_ceil(x):
 	return int(math.ceil(x))
 
+
+def split_bin(x, range_index_dict=None):
+	if x == range_index_dict['fillna_value'] and isinstance(x, str):
+		# 处理字符串型（表示其他类别）的cell值
+		print('# cell x bin_index with fillna_value!', '\n', '#\tcondition: cell x == fillna_value!')
+		return range_index_dict['fillna_value']
+	if not (isinstance(x, float) or isinstance(x, int)):
+		print('# cell x bin_index with fillna_value!', '\n', '#\tcondition: cell x not isinstance float or int!')
+		return range_index_dict['fillna_value']
+	cnt = 0
+	for key in range_index_dict.keys():
+		if key != 'fillna_value':
+			key_value = range_index_dict[key].split(':')[-1]
+			bin_low = key_value.split()[0].split('(')[-1]
+			bin_high = key_value.split()[-1].split(')')[0]
+			if float(bin_low) < float(x) <= float(bin_high):
+				cnt += 1
+				print('cell x in range: {}'.format(key_value))
+				return key
+			else:
+				print('cell x not in range: {}'.format(key_value))
+				return
+	if cnt == 0:
+		raise ValueError('current feature split bin failed!, please check the values....')
+
+
 result = pd.concat(
 	[pd.Series([], name='TransactionID').reset_index(), pd.Series([], name='isFraud').reset_index(drop=True)], axis=1
 )
 for i in range(df.shape[0]):
-	if i % 1000 == 0:
-		print('# current predict lines is: {low} - {high}'.format(low=i+1, high=i+999))
-		temp_df = df.iloc[i:i+999, :].copy()
+	if i % 10 == 0:
+		print('# current predict lines is: {low} - {high}'.format(low=i + 1, high=i + 9))
+		temp_df = df.iloc[i:i + 9, :].copy()
 		data_template = np.zeros((temp_df.shape[0], len(args_feature_names)))
 		data_template = pd.DataFrame(data_template, columns=args_feature_names, dtype=int)
 		print(temp_df['P_emaildomain'].unique())
@@ -120,12 +149,43 @@ for i in range(df.shape[0]):
 		temp_df = temp_df.fillna(args_missing_value_dict)
 		# 处理连续值
 		for con_name in train_continuous_feature_names:
-			mean = args_normal_cfeatures.iloc[args_normal_cfeatures['Unnamed: 0'] == con_name, 'mean'].values.min()
-			std = args_normal_cfeatures.iloc[args_normal_cfeatures['Unnamed: 0'] == con_name, 'std'].values.min()
+			mean = args_normal_cfeatures.ix[args_normal_cfeatures['Unnamed: 0'] == con_name, 'mean'].values.min()
+			std = args_normal_cfeatures.ix[args_normal_cfeatures['Unnamed: 0'] == con_name, 'std'].values.min()
 			data_template[con_name] = temp_df[con_name].apply(lambda x: z_score(x, a_mean=mean, a_std=std)).values
 			if con_name.startswith('C'):
 				data_template[con_name] = data_template[con_name].apply(lambda x: math_ceil(x)).values
 
+		# 变量分箱(这里处理的全是离散变量)
+		for special_col in special_cols_by_split:
+			data_template[special_col] = temp_df[special_col].apply(lambda x: split_bin(
+				x, range_index_dict=args_split_bin_range_dict[special_col])).values
+
 		# 处理离散值
 		for cat_name in train_categorical_feature_names:
-			pass
+			temp_df[cat_name] = temp_df[cat_name].astype(str)
+			uni_values = temp_df[cat_name].unique().tolist()
+			for uni_value in uni_values:
+				data_template[str(cat_name) + '_' + str(uni_value)] = \
+					[1 if val == uni_values else 0 for val in temp_df[cat_name]]
+
+		data_template = data_template[args_feature_names].copy()
+		data_template.sort_index(axis=1, inplace=True)
+
+		dtest = xgb.DMatrix(data_template)
+		model = xgb.Booster()
+		model.load_model('../model/model.model')
+		y_pred = model.predict(dtest)
+
+		batch_result = pd.concat(
+			[
+				temp_df['TransactionID'].reset_index(),
+				pd.Series(y_pred, name='isFraud').reset_index(drop=True)
+			], axis=1
+		)
+		result = pd.concat([result, batch_result], axis=0)
+		y_class = [1 if val >= 0.5 else 0 for val in y_pred]
+		print('# current batch 0-1 percent: {}'.format(Counter(y_class)))
+
+result.to_csv('../predict/predict_result.csv', index=False)
+
+print('run finish!')
