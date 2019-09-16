@@ -76,8 +76,8 @@ with open('../model/args_split_box_range.json', 'r+') as inf:
 args_split_bin_range_dict = eval(args_split_bin_range[0])
 a = pd.io.json.json_normalize(json.loads(args_split_bin_range[0]))
 b = json.loads(args_split_bin_range[0])
-print(args_split_bin_range)
-print('\n', pd.io.json.json_normalize(json.loads(args_split_bin_range[0])), '\n', json.loads(args_split_bin_range[0]))
+# print(args_split_bin_range)
+# print('\n', pd.io.json.json_normalize(json.loads(args_split_bin_range[0])), '\n', json.loads(args_split_bin_range[0]))
 
 # load data
 df = pd.read_csv('../predict/test_transaction.csv')
@@ -109,6 +109,7 @@ def math_ceil(x):
 
 
 def split_bin(x, range_index_dict=None):
+	print('# cell x value is: ', x)
 	if x == range_index_dict['fillna_value'] and isinstance(x, str):
 		# 处理字符串型（表示其他类别）的cell值
 		print('# cell x bin_index with fillna_value!', '\n', '#\tcondition: cell x == fillna_value!')
@@ -116,6 +117,7 @@ def split_bin(x, range_index_dict=None):
 	if not (isinstance(x, float) or isinstance(x, int)):
 		print('# cell x bin_index with fillna_value!', '\n', '#\tcondition: cell x not isinstance float or int!')
 		return range_index_dict['fillna_value']
+
 	cnt = 0
 	for key in range_index_dict.keys():
 		if key != 'fillna_value':
@@ -128,18 +130,25 @@ def split_bin(x, range_index_dict=None):
 				return key
 			else:
 				print('cell x not in range: {}'.format(key_value))
-				return
+
 	if cnt == 0:
 		raise ValueError('current feature split bin failed!, please check the values....')
 
 
 result = pd.concat(
-	[pd.Series([], name='TransactionID').reset_index(), pd.Series([], name='isFraud').reset_index(drop=True)], axis=1
+	[pd.Series([], name='TransactionID', dtype=int).reset_index(),
+	 pd.Series([], name='isFraud').reset_index(drop=True)], axis=1
 )
+
+# load model
+model = xgb.Booster()
+model.load_model('../model/IEE_CIS_fraud_detection_cv_V1.model')
+
 for i in range(df.shape[0]):
-	if i % 10 == 0:
-		print('# current predict lines is: {low} - {high}'.format(low=i + 1, high=i + 9))
-		temp_df = df.iloc[i:i + 9, :].copy()
+	if i % 2000 == 0:
+		print('# current predict lines is: {low} - {high}'.format(low=i + 1, high=i + 2000))
+		temp_df = df.ix[i:i + 1999, :].copy()
+		print(temp_df.shape)
 		data_template = np.zeros((temp_df.shape[0], len(args_feature_names)))
 		data_template = pd.DataFrame(data_template, columns=args_feature_names, dtype=int)
 		print(temp_df['P_emaildomain'].unique())
@@ -157,7 +166,7 @@ for i in range(df.shape[0]):
 
 		# 变量分箱(这里处理的全是离散变量)
 		for special_col in special_cols_by_split:
-			data_template[special_col] = temp_df[special_col].apply(lambda x: split_bin(
+			temp_df[special_col] = temp_df[special_col].apply(lambda x: split_bin(
 				x, range_index_dict=args_split_bin_range_dict[special_col])).values
 
 		# 处理离散值
@@ -166,14 +175,14 @@ for i in range(df.shape[0]):
 			uni_values = temp_df[cat_name].unique().tolist()
 			for uni_value in uni_values:
 				data_template[str(cat_name) + '_' + str(uni_value)] = \
-					[1 if val == uni_values else 0 for val in temp_df[cat_name]]
+					[1 if val == uni_value else 0 for val in temp_df[cat_name]]
 
+		print('#  data_template shape: ', data_template.shape)
 		data_template = data_template[args_feature_names].copy()
+		print('#  data_template shape: ', data_template.shape)
 		data_template.sort_index(axis=1, inplace=True)
 
 		dtest = xgb.DMatrix(data_template)
-		model = xgb.Booster()
-		model.load_model('../model/model.model')
 		y_pred = model.predict(dtest)
 
 		batch_result = pd.concat(
