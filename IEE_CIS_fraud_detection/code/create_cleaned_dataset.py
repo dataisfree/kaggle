@@ -21,7 +21,8 @@ warnings.filterwarnings(action='once')
 
 mpl.rcParams['font.family'] = 'SimHei'
 mpl.rcParams["axes.unicode_minus"] = False
-pd.set_option('max_columns', 100)
+pd.set_option('max_columns', 1000)
+pd.set_option('max_rows', 10000)
 
 # load_data
 df = pd.read_csv('../data/train_transaction.csv')
