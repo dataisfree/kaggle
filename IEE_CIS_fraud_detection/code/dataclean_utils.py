@@ -7,6 +7,7 @@ from imblearn.over_sampling import SMOTE
 import numpy as np
 import pandas as pd
 
+
 def create_missing_value_dict(data, dis_names, con_names):
 	"""
 	缺失值填充字典
@@ -137,7 +138,7 @@ def imbalance(trainX, trainy, class_num=2, positive_negative_perc=0.5):
 	trainX_names = temp_trainX.columns.values.tolist()
 	trainy_names = temp_trainy.columns.values.tolist()
 
-	if class_num < 3:
+	if 3 > class_num > 1:
 		if positive_negative_perc < 0.4 or (1 - positive_negative_perc) < 0.4:
 			return dive_imbalance_data(trainX=temp_trainX, trainy=temp_trainy)
 		else:

@@ -217,44 +217,99 @@ trainX_normal, trainX_args_df = dc.data_normalized_continuous_features(
 	data=trainX,
 	col_names=train_continuous_feature_names)
 
-trainX_transpose = pd.concat([pd.DataFrame(trainX_normal), pd.DataFrame(trainX_onehot)], axis=1)
+trainX_transpose = pd.concat([
+	pd.DataFrame(trainX_normal).reset_index(drop=True),
+	pd.DataFrame(trainX_onehot).reset_index(drop=True)], axis=1)
 trainX_transpose.sort_index(axis=1, inplace=True)
 
-y_cnt = Counter(trainy.ix[:, 0].values)
-class_num = len(y_cnt.keys())
-class_0_rate = round(int(y_cnt.get(0)) / sum(y_cnt.values()), 4)
-class_1_rate = round(int(y_cnt.get(1)) / sum(y_cnt.values()), 4)
-for col in trainX_transpose.columns.values:
-	print('# colname: ', col, '# value: ', trainX_transpose[col][trainX_transpose[col].isnull()])
+# 批处理，适用于算力不够的情况
+imbalanceX = pd.DataFrame([])
+imbalancey = pd.DataFrame([])
 
-over_sampling_trainX, over_sampling_trainy, trainX_names, trainy_names = dc.imbalance(
-	trainX=trainX_transpose,
-	trainy=trainy,
-	class_num=2,
-	positive_negative_perc=class_1_rate
-)
-over_sampling_trainX = pd.DataFrame(data=over_sampling_trainX, columns=trainX_names)
-over_sampling_trainy = pd.DataFrame(data=over_sampling_trainy, columns=trainy_names)
+for i in range(trainX_transpose.shape[0]):
+	if i % 10 == 0:
+		print('### current act line with {low} - {high}'.format(low=i, high=i + 10))
+		X = trainX_transpose.ix[i:i + 9, :].copy()
+		y = trainy.ix[i:i + 9, :].copy()
+		print('=' * 100)
+		print('### X-y shape')
+		print(X.shape, y.shape)
+
+		y_cnt = Counter(y.ix[:, 0].values)
+		print('=' * 100)
+		print('### y_cnt')
+		print(y_cnt)
+
+		class_num = len(y_cnt.keys())
+		class_0_rate = round(int(y_cnt.get(0, 0)) / sum(y_cnt.values()), 4)
+		class_1_rate = round(int(y_cnt.get(1, 0)) / sum(y_cnt.values()), 4)
+		print('=' * 100)
+		print('### class_num:{}, class_0_rate:{}, class_1_rate:{}'.format(class_num, class_0_rate, class_1_rate))
+
+		over_sampling_trainX, over_sampling_trainy, trainX_names, trainy_names = dc.imbalance(
+			trainX=X,
+			trainy=y,
+			class_num=class_num,
+			positive_negative_perc=class_1_rate
+		)
+		over_sampling_trainX = pd.DataFrame(data=over_sampling_trainX, columns=trainX_names)
+		over_sampling_trainy = pd.DataFrame(data=over_sampling_trainy, columns=trainy_names)
+		print('=' * 100)
+		print('### over_sampling_trainX head')
+		print(over_sampling_trainX.head)
+		print('=' * 100)
+		print('### over_sampling_trainy counter')
+		print(Counter(over_sampling_trainy['isFraud']))
+
+		imbalanceX = pd.concat([imbalanceX, over_sampling_trainX], axis=0)
+		imbalancey = pd.concat([imbalancey, over_sampling_trainy], axis=0)
+		print('=' * 100)
+		print('### imbalanceX head ')
+		print(imbalanceX.head(100))
+		print('=' * 100)
+		print('### imbalancey head ')
+		print(imbalancey.head(100))
+		time.sleep(100)
+
+clean_dataset = pd.concat([imbalanceX.reset_index(drop=True), imbalancey.reset_index(drop=True)], axis=1)
+clean_dataset.to_csv('./work/data/cleaned_dataset_transaction.csv', index=False)
+
+# 一次性全部处理
+# y_cnt = Counter(trainy.ix[:, 0].values)
+# class_num = len(y_cnt.keys())
+# class_0_rate = round(int(y_cnt.get(0)) / sum(y_cnt.values()), 4)
+# class_1_rate = round(int(y_cnt.get(1)) / sum(y_cnt.values()), 4)
+# for col in trainX_transpose.columns.values:
+# 	print('# colname: ', col, '# value: ', trainX_transpose[col][trainX_transpose[col].isnull()])
+#
+# over_sampling_trainX, over_sampling_trainy, trainX_names, trainy_names = dc.imbalance(
+# 	trainX=trainX_transpose,
+# 	trainy=trainy,
+# 	class_num=2,
+# 	positive_negative_perc=class_1_rate
+# )
+# over_sampling_trainX = pd.DataFrame(data=over_sampling_trainX, columns=trainX_names)
+# over_sampling_trainy = pd.DataFrame(data=over_sampling_trainy, columns=trainy_names)
 
 # 导出清洗后的数据集
-clean_dataset = pd.concat([over_sampling_trainX, over_sampling_trainy], axis=1)
-clean_dataset.to_csv('../data/cleaned_dataset1.csv', index=False)
+# clean_dataset = pd.concat([over_sampling_trainX, over_sampling_trainy], axis=1)
+# clean_dataset.to_csv('../data/cleaned_dataset1.csv', index=False)
 
 # 导出离散范围
-with open('../model/args_split_box_range.json', 'w+') as inf:
+with open('./work/model/args_split_box_range.json', 'w+') as inf:
 	inf.writelines(json.dumps(split_dict))
-
 
 # 参数留存
 # 标准化参数
-trainX_args_df.to_csv('../model/args_normalized_continuous_features.csv')
+trainX_args_df.to_csv('./work/model/args_normalized_continuous_features.csv')
 # 缺失值参数
-with open('../model/args_missing_value_fill.json', 'w+') as outf:
+with open('./work/model/args_missing_value_fill.json', 'w+') as outf:
 	outf.write(json.dumps({'args': missing_fill_dict}))
 
 # 特征名
-with open('../model/args_cleaned_feature_names.txt', 'w+') as outf:
-	for name in over_sampling_trainX.columns.values.tolist():
+with open('./work/model/args_cleaned_feature_names.txt', 'w+') as outf:
+# for name in over_sampling_trainX.columns.values.tolist():
+	for name in imbalanceX.columns.values.tolist():
 		outf.write(name + '\n')
 
 print('run finish!!!')
