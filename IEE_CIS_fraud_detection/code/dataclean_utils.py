@@ -201,14 +201,27 @@ def split_box(data, type='width', width_interval=500, fillna_dict=None):
 	elif type == 'width':
 		min_x = temp_data.min()
 		max_x = temp_data.max()
-		width_interval = 1*10**(len(str(int(abs(temp_data.mean()))))-1)
+		a = len(str(int(abs(temp_data.mean()))))
+		if a == 1:
+			width_interval = 5
+		elif a in [2, 3]:
+			width_interval = 10
+		elif a > 3:
+			width_interval = 100
+		else:
+			print('分箱间隔计算出错')
+		# width_interval = 1*10**(len(str(int(abs(temp_data.mean()))))-1)
+
+		if width_interval == 0:
+			width_interval = 5
+
 		n = int((max_x - min_x) * 1.0 / width_interval)
 		div_point = [int(min_x + (i + 1) * width_interval) for i in range(n)]
 		div_point.insert(0, float('-inf'))
 		div_point.extend([float('inf')])
 		interval_range = {
-			index: 'range:({} < x <= {})'.format(div_point[index], div_point[index+1])
-			for index in range(len(div_point)-1)
+			index: 'range:({} < x <= {})'.format(div_point[index], div_point[index + 1])
+			for index in range(len(div_point) - 1)
 		}
 		fillna_val = fillna_dict[temp_data.name]
 		interval_range['fillna_value'] = fillna_val
